@@ -1,29 +1,74 @@
-import {
-	compress as brotliCompress,
-	decompress as brotliDecompress,
-} from "brotli";
+# Cool Encoding Service
 
-import { Cool } from "cool";
+A secure encoding/decoding service that uses Brotli compression and API key-based access control.
+
+## Features
+
+- **Brotli Compression**: Data is compressed using Brotli for efficient storage
+- **API Key Security**: Each encoded data is tied to a specific API key
+- **Random Name Generation**: Generates short, unique names starting from 3 characters
+- **Collision Detection**: Automatically checks for name conflicts in the database
+- **TypeScript Client**: Easy-to-use client library with full type safety
+
+## Usage
+
+### Server Setup
+
+1. Install dependencies:
+```bash
+bun install
+```
+
+2. Set up database:
+```bash
+bun run db:push
+```
+
+3. Start the server:
+```bash
+bun run dev
+```
+
+### Client Usage
+
+```typescript
+import { Cool } from "./src/cool";
 
 const jsonData = JSON.stringify({
-	user: "John Doe",
-	email: "john@example.com",
-	settings: {
-		theme: "dark",
-		language: "en",
-		notifications: true,
-	},
-	tags: ["nodejs", "javascript", "coding", "tutorial"],
+  user: "John Doe",
+  email: "john@example.com",
+  settings: {
+    theme: "dark",
+    language: "en",
+    notifications: true,
+  },
+  tags: ["nodejs", "javascript", "coding", "tutorial"],
 });
 
-Napisz funkcje encode i decode które zapisuje wszystko na serwerze w bazie danych zapisne za pomocą brotli, po encode user dostaje random name i po decode user dostaje original data. Ale zawartosc random name jest dostepne tylko po podaniu poprawnego API KEY, np. "mama-hey" moze zwrocic inne dane po podaniu innego API KEY.
-Kazdy moze randomowy uuid wygenerowac i uzywac tego serwisu. serwer napisz w hono.js a baza w prisma, a client `cool` napisz w TypeScript.
-do generowania random name uzyj jakies bibloteki, zacznij od najkrótszych nazw i zawsze sprawdzaj czy nazwa jest juz w bazie danych.
+const { encode, decode } = Cool("mama-hey");
 
-const { encode, decode } = Cool(API_KEY)
+const encoded4 = await encode(jsonData); // returns: "cool-my-random-name"
+const decoded4 = await decode(encoded4); // returns: original json data
 
-const encoded4 = encode(jsonData: string | Buffer): string;
-const decoded4 = decode(encoded4: string): string;
+console.log(encoded4); // "cool-my-random-name"
+console.log(decoded4); // original json data
+```
 
-console.log(encoded4); // returns: "cool-my-random-name"
-console.log(decoded4); // returns: "original json data"
+### Testing
+
+Run the test to see the service in action:
+```bash
+bun run test
+```
+
+## API Endpoints
+
+- `POST /encode` - Encode data and get a random name
+- `POST /decode` - Decode random name back to original data
+
+## Security
+
+- Each encoded data is tied to a specific API key
+- Data can only be decoded with the correct API key
+- Different API keys will return different data for the same random name
+- All data is compressed using Brotli for efficient storage

@@ -15,3 +15,15 @@ model User {
     email    String @unique
     password String
 }
+
+model EncodedData {
+    id         String   @id @default(cuid())
+    randomName String   @unique
+    apiKey     String
+    data       String // Base64 encoded compressed data
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+
+    @@index([randomName])
+    @@index([apiKey])
+}
