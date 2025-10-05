@@ -11,18 +11,24 @@ datasource db {
 }
 
 model User {
-    id       String @id @default(cuid())
-    email    String @unique
-    password String
+    id       String  @id @default(cuid())
+    apiKey   String  @unique
+    isActive Boolean @default(true)
+
+    encodedData EncodedData[]
 }
 
 model EncodedData {
     id         String   @id @default(cuid())
     randomName String   @unique
     apiKey     String
-    data       String // Base64 encoded compressed data
+    data       String // Base64 encoded data
+    compressed Boolean  @default(false) // Flag to indicate if data is compressed
     createdAt  DateTime @default(now())
     updatedAt  DateTime @updatedAt
+
+    User   User?   @relation(fields: [userId], references: [id])
+    userId String?
 
     @@index([randomName])
     @@index([apiKey])

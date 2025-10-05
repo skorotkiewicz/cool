@@ -41,7 +41,7 @@ export function Cool(
 					}),
 				});
 
-				const result: CoolResponse = await response.json();
+				const result = (await response.json()) as CoolResponse;
 
 				if (!result.success || !result.randomName) {
 					throw new Error(result.error || "Failed to encode data");
@@ -71,7 +71,7 @@ export function Cool(
 					}),
 				});
 
-				const result: CoolResponse = await response.json();
+				const result = (await response.json()) as CoolResponse;
 
 				if (!result.success || !result.data) {
 					throw new Error(result.error || "Failed to decode data");
