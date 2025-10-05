@@ -1,10 +1,12 @@
+import type { Context } from "hono";
+
 // Rate limiter storage
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute in milliseconds
 const RATE_LIMIT_MAX_REQUESTS = 10; // 10 requests per minute
 
 // Rate limiter middleware
-export const rateLimiter = async (c: any, next: () => Promise<void>) => {
+export const rateLimiter = async (c: Context, next: () => Promise<void>) => {
 	const clientIP =
 		c.req.header("x-forwarded-for") ||
 		c.req.header("x-real-ip") ||

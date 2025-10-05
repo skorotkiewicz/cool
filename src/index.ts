@@ -1,16 +1,60 @@
 import { promisify } from "node:util";
 import { brotliCompress, brotliDecompress } from "node:zlib";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { prisma } from "./prisma";
 import { randomNameGenerator } from "./utils/nameGenerator";
 import { rateLimiter } from "./utils/rateLimiter";
 
 type Variables = {
 	body: unknown;
+	user: unknown; // Prisma User type
+};
+
+type IUser = {
+	apiKey: string;
+	isActive: boolean;
+	data: string;
+	randomName: string;
 };
 
 const compressAsync = promisify(brotliCompress);
 const decompressAsync = promisify(brotliDecompress);
+
+// User validation middleware
+const userValidator = async (c: Context, next: () => Promise<void>) => {
+	const body = c.get("body") as IUser;
+
+	if (!body.apiKey) {
+		return c.json({ error: "Missing apiKey" }, 400);
+	}
+
+	if (!body.randomName && !body.data) {
+		return c.json({ error: "Missing randomName or data" }, 400);
+	}
+
+	// Check if user exists and is active, create if doesn't exist
+	let user = await prisma.user.findUnique({
+		where: { apiKey: body.apiKey },
+	});
+
+	if (!user) {
+		// Create new user automatically
+		user = await prisma.user.create({
+			data: {
+				apiKey: body.apiKey,
+				isActive: true,
+			},
+		});
+	}
+
+	if (!user.isActive) {
+		return c.json({ error: "User account is deactivated" }, 403);
+	}
+
+	// Pass user to context
+	c.set("user", user);
+	await next();
+};
 
 const app = new Hono<{ Variables: Variables }>();
 
@@ -28,36 +72,13 @@ app.use("*", async (c, next) => {
 });
 
 // Encode endpoint
-app.post("/encode", rateLimiter, async (c) => {
+app.post("/encode", rateLimiter, userValidator, async (c) => {
 	try {
-		const body = c.get("body") as { data: string; apiKey: string };
-		const { data, apiKey } = body;
-
-		if (!data || !apiKey) {
-			return c.json({ error: "Missing data or apiKey" }, 400);
-		}
-
-		// Check if user exists and is active, create if doesn't exist
-		let user = await prisma.user.findUnique({
-			where: { apiKey },
-		});
-
-		if (!user) {
-			// Create new user automatically
-			user = await prisma.user.create({
-				data: {
-					apiKey,
-					isActive: true,
-				},
-			});
-		}
-
-		if (!user.isActive) {
-			return c.json({ error: "User account is deactivated" }, 403);
-		}
+		const body = c.get("body") as IUser;
+		const user = c.get("user") as IUser;
 
 		// Compress data with Brotli
-		const inputBuffer = Buffer.from(data, "utf8");
+		const inputBuffer = Buffer.from(body.data, "utf8");
 
 		let dataToStore: string;
 		let isCompressed = false;
@@ -85,17 +106,13 @@ app.post("/encode", rateLimiter, async (c) => {
 		await prisma.encodedData.create({
 			data: {
 				randomName,
-				apiKey,
+				apiKey: user.apiKey,
 				data: dataToStore,
 				compressed: isCompressed,
-				userId: user.id,
 			},
 		});
 
-		return c.json({
-			success: true,
-			randomName: `cool-${randomName}`,
-		});
+		return c.json({ success: true, randomName });
 	} catch (error) {
 		console.error("Encode error:", error);
 		return c.json({ error: "Internal server error" }, 500);
@@ -103,39 +120,21 @@ app.post("/encode", rateLimiter, async (c) => {
 });
 
 // Decode endpoint
-app.post("/decode", rateLimiter, async (c) => {
+app.post("/decode", rateLimiter, userValidator, async (c) => {
 	try {
-		const body = c.get("body") as { randomName: string; apiKey: string };
-		const { randomName, apiKey } = body;
-
-		if (!randomName || !apiKey) {
-			return c.json({ error: "Missing randomName or apiKey" }, 400);
-		}
-
-		// Check if user exists and is active
-		const user = await prisma.user.findUnique({
-			where: { apiKey },
-		});
-
-		if (!user?.isActive) {
-			return c.json({ error: "User account is deactivated" }, 403);
-		}
-
-		// Remove "cool-" prefix if present
-		const cleanName = randomName.startsWith("cool-")
-			? randomName.slice(5)
-			: randomName;
+		const body = c.get("body") as { randomName: string };
+		const user = c.get("user") as { apiKey: string };
 
 		// Find data in database
 		const encodedData = await prisma.encodedData.findUnique({
-			where: { randomName: cleanName },
+			where: { randomName: body.randomName },
 		});
 
 		if (!encodedData) {
 			return c.json({ error: "Data not found" }, 404);
 		}
 
-		if (encodedData.apiKey !== apiKey) {
+		if (encodedData.apiKey !== user.apiKey) {
 			return c.json({ error: "Invalid API key" }, 403);
 		}
 
@@ -153,15 +152,10 @@ app.post("/decode", rateLimiter, async (c) => {
 				originalData = dataBuffer.toString("utf8");
 			}
 		} else {
-			// Data is not compressed, use directly
-			console.log("Data not compressed, using directly");
 			originalData = dataBuffer.toString("utf8");
 		}
 
-		return c.json({
-			success: true,
-			data: originalData,
-		});
+		return c.json({ success: true, data: originalData });
 	} catch (error) {
 		console.error("Decode error:", error);
 		return c.json({ error: "Internal server error" }, 500);
