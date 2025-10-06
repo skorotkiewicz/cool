@@ -6,12 +6,19 @@ const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 
 // Cache middleware
 export const cacheMiddleware = async (c: any, next: () => Promise<void>) => {
-  //   const url = c.req.url;
   const method = c.req.method;
-  const body = await c.req.json();
 
   // Only cache POST requests
   if (method !== "POST") {
+    await next();
+    return;
+  }
+
+  // Try to parse JSON body for POST requests
+  let body: any;
+  try {
+    body = await c.req.json();
+  } catch {
     await next();
     return;
   }

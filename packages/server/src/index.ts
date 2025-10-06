@@ -1,15 +1,15 @@
 import { promisify } from "node:util";
 import { brotliCompress, brotliDecompress } from "node:zlib";
 import { Hono } from "hono";
-import { prisma } from "./prisma";
+import { nostrRelay, type User } from "./nostr";
 import { cacheMiddleware } from "./utils/cache";
 import { randomNameGenerator } from "./utils/nameGenerator";
 import { rateLimiter } from "./utils/rateLimiter";
-import { type IUser, userValidator } from "./utils/userValidator";
+import { userValidator } from "./utils/userValidator";
 
 type Variables = {
   body: unknown;
-  user: unknown;
+  user: User;
 };
 
 const compressAsync = promisify(brotliCompress);
@@ -36,8 +36,12 @@ app.use("*", async (c, next) => {
 // Encode endpoint
 app.post("/encode", rateLimiter, userValidator, async (c) => {
   try {
-    const body = c.get("body") as IUser;
-    const user = c.get("user") as IUser;
+    const body = c.get("body") as { data: string; apiKey: string };
+    const user = c.get("user") as User;
+
+    if (!body.data) {
+      return c.json({ error: "Missing data" }, 400);
+    }
 
     // Compress data with Brotli
     const inputBuffer = Buffer.from(body.data, "utf8");
@@ -64,17 +68,15 @@ app.post("/encode", rateLimiter, userValidator, async (c) => {
     const randomName = await randomNameGenerator();
     console.log("Random name generated:", randomName);
 
-    // Store in database
-    await prisma.encodedData.create({
-      data: {
-        randomName,
-        apiKey: user.apiKey,
-        data: dataToStore,
-        compressed: isCompressed,
-      },
+    // Store in Nostr relay
+    await nostrRelay.createEncodedData({
+      randomName,
+      apiKey: user.apiKey,
+      data: dataToStore,
+      compressed: isCompressed,
     });
 
-    return c.json({ success: true, randomName });
+    return c.json({ success: true, randomName: `cool-${randomName}` });
   } catch (error) {
     console.error("Encode error:", error);
     return c.json({ error: "Internal server error" }, 500);
@@ -84,13 +86,20 @@ app.post("/encode", rateLimiter, userValidator, async (c) => {
 // Decode endpoint
 app.post("/decode", rateLimiter, userValidator, async (c) => {
   try {
-    const body = c.get("body") as IUser;
-    const user = c.get("user") as IUser;
+    const body = c.get("body") as { randomName: string; apiKey: string };
+    const user = c.get("user") as User;
 
-    // Find data in database
-    const encodedData = await prisma.encodedData.findUnique({
-      where: { randomName: body.randomName },
-    });
+    if (!body.randomName) {
+      return c.json({ error: "Missing randomName" }, 400);
+    }
+
+    // Remove "cool-" prefix if present
+    const cleanName = body.randomName.startsWith("cool-")
+      ? body.randomName.slice(5)
+      : body.randomName;
+
+    // Find data in Nostr relay
+    const encodedData = await nostrRelay.getEncodedDataByRandomName(cleanName);
 
     if (!encodedData) {
       return c.json({ error: "Data not found" }, 404);
@@ -127,11 +136,14 @@ app.post("/decode", rateLimiter, userValidator, async (c) => {
 app.get("/", (c) => c.text("Cool Encoding Service"));
 
 // Service info endpoint
-app.get("/info", (c) => {
+app.get("/info", async (c) => {
+  const eventCount = await nostrRelay.getEventCount();
+
   return c.json({
     service: "Cool Encoding Service",
-    version: "1.0.0",
-    features: ["Brotli Compression", "User Management", "Rate Limiting", "Caching"],
+    version: "2.0.0",
+    database: "Nostr Relay",
+    features: ["Brotli Compression", "User Management", "Rate Limiting", "Caching", "Nostr Events"],
     endpoints: {
       encode: "POST /encode",
       decode: "POST /decode",
@@ -140,6 +152,10 @@ app.get("/info", (c) => {
     cache: {
       duration: "1 hour",
       appliesTo: "POST requests",
+    },
+    nostr: {
+      events: eventCount,
+      relay: "Local Nostr Relay",
     },
   });
 });

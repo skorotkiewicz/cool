@@ -1,4 +1,4 @@
-import { prisma } from "../prisma";
+import { nostrRelay } from "../nostr";
 
 // Character sets for generating names
 const consonants = "bcdfghjklmnpqrstvwxyz";
@@ -7,7 +7,7 @@ const allChars = consonants + vowels;
 
 /**
  * Generate a random name starting from shortest length
- * and checking for collisions in the database
+ * and checking for collisions in the Nostr relay
  */
 export async function randomNameGenerator(): Promise<string> {
   // Start with shortest names and increase length if needed
@@ -16,12 +16,10 @@ export async function randomNameGenerator(): Promise<string> {
     for (let attempt = 0; attempt < 100; attempt++) {
       const name = generateRandomName(length);
 
-      // Check if name already exists in database
-      const exists = await prisma.encodedData.findUnique({
-        where: { randomName: name },
-      });
+      // Check if name already exists in Nostr relay
+      const exists = await nostrRelay.isRandomNameUnique(name);
 
-      if (!exists) {
+      if (exists) {
         return name;
       }
     }

@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import { prisma } from "../prisma";
+import { nostrRelay } from "../nostr";
 
 export type IUser = {
   apiKey: string;
@@ -21,18 +21,11 @@ export const userValidator = async (c: Context, next: () => Promise<void>) => {
   }
 
   // Check if user exists and is active, create if doesn't exist
-  let user = await prisma.user.findUnique({
-    where: { apiKey: body.apiKey },
-  });
+  let user = await nostrRelay.getUserByApiKey(body.apiKey);
 
   if (!user) {
     // Create new user automatically
-    user = await prisma.user.create({
-      data: {
-        apiKey: body.apiKey,
-        isActive: true,
-      },
-    });
+    user = await nostrRelay.createUser(body.apiKey);
   }
 
   if (!user.isActive) {
