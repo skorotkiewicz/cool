@@ -2,6 +2,7 @@ import { promisify } from "node:util";
 import { brotliCompress, brotliDecompress } from "node:zlib";
 import { Hono } from "hono";
 import { prisma } from "./prisma";
+import { cacheMiddleware } from "./utils/cache";
 import { randomNameGenerator } from "./utils/nameGenerator";
 import { rateLimiter } from "./utils/rateLimiter";
 import { type IUser, userValidator } from "./utils/userValidator";
@@ -15,6 +16,9 @@ const compressAsync = promisify(brotliCompress);
 const decompressAsync = promisify(brotliDecompress);
 
 const app = new Hono<{ Variables: Variables }>();
+
+// Cache middleware for all requests
+app.use("*", cacheMiddleware);
 
 // Middleware to parse JSON
 app.use("*", async (c, next) => {
@@ -121,5 +125,23 @@ app.post("/decode", rateLimiter, userValidator, async (c) => {
 });
 
 app.get("/", (c) => c.text("Cool Encoding Service"));
+
+// Service info endpoint
+app.get("/info", (c) => {
+  return c.json({
+    service: "Cool Encoding Service",
+    version: "1.0.0",
+    features: ["Brotli Compression", "User Management", "Rate Limiting", "Caching"],
+    endpoints: {
+      encode: "POST /encode",
+      decode: "POST /decode",
+      info: "GET /info",
+    },
+    cache: {
+      duration: "1 hour",
+      appliesTo: "POST requests",
+    },
+  });
+});
 
 export default app;
