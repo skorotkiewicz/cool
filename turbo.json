@@ -11,6 +11,9 @@
     "dev": {
       "inputs": ["**/*.ts"]
     },
+    "start": {
+      "inputs": ["**/*.ts"]
+    },
     "publish": {
       "dependsOn": ["build"],
       "outputs": [],
