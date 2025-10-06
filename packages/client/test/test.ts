@@ -31,14 +31,14 @@ async function testCoolService() {
     console.log("---");
     console.log("Data matches:", jsonData === decoded4);
 
-    // // Test with different API key (should fail)
-    // console.log("\nTesting with different API key...");
-    // try {
-    // 	const { decode: decodeWrong } = Cool("wrong-key");
-    // 	await decodeWrong(encoded4);
-    // } catch (error) {
-    // 	console.log("Expected error with wrong API key:", error.message);
-    // }
+    // Test with different API key (should fail)
+    console.log("\nTesting with different API key...");
+    try {
+      const { decode: decodeWrong } = Cool("wrong-key");
+      await decodeWrong(encoded4);
+    } catch (error) {
+      console.log("Expected error with wrong API key:", error.message);
+    }
   } catch (error) {
     console.error("Test failed:", error);
   }
