@@ -3,8 +3,6 @@
   "description": "Cool client for the Cool encoding service",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
-  "module": "src/cool.ts",
   "main": "dist/cool.js",
   "types": "dist/cool.d.ts",
   "files": [
