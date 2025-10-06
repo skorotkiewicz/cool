@@ -22,6 +22,22 @@ bun run dev
 bun run test
 ```
 
+## Usage
+
+```typescript
+import { Cool } from 'cool-client';
+
+const { encode, decode } = Cool('your-api-key');
+
+// Encode data
+const randomName = await encode('{"message": "hello world"}');
+console.log(randomName); // "cool-abc123"
+
+// Decode data
+const originalData = await decode(randomName);
+console.log(originalData); // '{"message": "hello world"}'
+```
+
 ## Features
 
 - **Brotli Compression** - Efficient data storage
