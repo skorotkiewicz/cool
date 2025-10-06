@@ -25,7 +25,7 @@ model EncodedData {
     compressed Boolean  @default(false)
     createdAt  DateTime @default(now())
 
-    User   User?  @relation(fields: [apiKey], references: [apiKey])
+    User   User   @relation(fields: [apiKey], references: [apiKey])
     apiKey String
 
     @@index([randomName])

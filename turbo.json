@@ -1,0 +1,20 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "tasks": {
+    "build": {
+      "outputs": ["dist/**"],
+      "inputs": ["**/*.ts"]
+    },
+    "test": {
+      "inputs": ["**/*.ts"]
+    },
+    "dev": {
+      "inputs": ["**/*.ts"]
+    },
+    "publish": {
+      "dependsOn": ["build"],
+      "outputs": [],
+      "inputs": []
+    }
+  }
+}
